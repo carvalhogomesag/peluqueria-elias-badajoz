@@ -5,7 +5,7 @@ export interface Service {
   name: string;
   description: string;
   price: string;
-  duration: number; // em minutos
+  duration: number; 
 }
 
 export interface Review {
@@ -28,23 +28,22 @@ export interface Appointment {
   createdAt: any;    
 }
 
-// --- NOVOS TIPOS PARA GESTÃO ---
-
 export interface WorkConfig {
   id?: string;
-  startHour: string; // Ex: "09:00"
-  endHour: string;   // Ex: "20:00"
-  breakStart?: string; // Ex: "13:00"
-  breakEnd?: string;   // Ex: "14:00"
-  daysOff: number[]; // [0, 6] para Domingo e Sábado
+  startHour: string; 
+  endHour: string;   
+  breakStart?: string; 
+  breakEnd?: string;   
+  daysOff: number[]; 
 }
 
 export interface TimeBlock {
   id?: string;
-  title: string;      // Motivo do bloqueio (ex: "Médico")
-  date: string;       // Data do início do bloqueio
+  title: string;      
+  date: string;       
   startTime: string;
   endTime: string;
   isRecurring: boolean;
   recurringType?: 'daily' | 'weekly' | 'monthly';
+  repeatCount?: number; // Nova propriedade: quantas vezes repetir
 }
