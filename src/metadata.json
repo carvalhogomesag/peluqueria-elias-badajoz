@@ -1,0 +1,7 @@
+{
+  "name": "Barbearia Premium Lisboa",
+  "description": "Website oficial da Barbearia Premium em Lisboa. Experiência premium com cortes clássicos e modernos, barba com toalha quente e atendimento personalizado no coração do Areeiro e Saldanha.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
