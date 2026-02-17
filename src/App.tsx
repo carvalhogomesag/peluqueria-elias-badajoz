@@ -1,25 +1,34 @@
-import React from 'react';
+import React, { useState } from 'react'; // Adicionado useState
 import { 
   Scissors, MapPin, Phone, Clock, Star, 
   CheckCircle2, Quote, ArrowRight, ShieldCheck, 
   Heart, Users, ExternalLink, Camera, Sparkles 
 } from 'lucide-react';
 import Navbar from './components/Navbar';
+import BookingModal from './components/BookingModal'; // Importado o novo componente
 import { BUSINESS_INFO, SERVICES, REVIEWS, IMAGES } from './constants';
 import mapaImg from './assets/images/mapa-localizacao.webp'; 
 
 const MAP_SOURCE = mapaImg;
 
 const App: React.FC = () => {
+  // Estado para controlar a visibilidade da agenda
+  const [isBookingOpen, setIsBookingOpen] = useState(false);
+
   return (
     // TEMA: Gris oscuro y Rosa Carmesim (Rose-600)
     <div className="min-h-screen flex flex-col selection:bg-rose-600/30 selection:text-rose-200 bg-stone-50">
       <Navbar />
 
+      {/* COMPONENTE DE AGENDAMENTO (Invisível até ser ativado) */}
+      <BookingModal 
+        isOpen={isBookingOpen} 
+        onClose={() => setIsBookingOpen(false)} 
+      />
+
       {/* HERO SECTION */}
       <section id="inicio" className="relative min-h-[90vh] md:min-h-[95vh] flex items-center justify-center overflow-hidden bg-stone-900">
         <div className="absolute inset-0 z-0">
-          {/* Usando la primera foto del interior */}
           <img src={IMAGES.interior[0].url} alt="Peluquería Elías León" className="w-full h-full object-cover opacity-30 scale-105" />
           <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-stone-900/90 to-stone-900"></div> 
         </div>
@@ -29,7 +38,7 @@ const App: React.FC = () => {
             <div className="inline-flex flex-wrap justify-center items-center gap-2 bg-rose-600/10 border border-rose-600/20 px-4 py-2 rounded-full mb-8 animate-fade-in text-rose-500">
               <Star size={14} fill="currentColor" />
               <span className="text-xs font-bold uppercase tracking-[0.2em]">Tu Peluquería de Confianza en Badajoz</span>
-              <span className="text-stone-400 text-xs font-medium uppercase tracking-widest hidden md:inline"> | 4.9 Estrellas</span>
+              <span className="text-stone-400 text-xs font-medium uppercase tracking-widest hidden md:inline"> | 4.9 Estrelas</span>
             </div>
             
             <h2 className="font-serif text-5xl md:text-8xl font-bold mb-8 leading-[1.1] text-white">
@@ -42,10 +51,17 @@ const App: React.FC = () => {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-5 justify-center px-4">
-              <a href={BUSINESS_INFO.bookingUrl} target="_blank" rel="noreferrer" className="bg-rose-600 hover:bg-rose-700 text-white px-10 py-5 rounded-full text-lg font-bold transition-all flex items-center justify-center gap-3 shadow-xl shadow-rose-900/20 group">
+              {/* BOTÃO ATUALIZADO: Agora abre o Modal interno */}
+              <button 
+                onClick={() => setIsBookingOpen(true)}
+                className="bg-rose-600 hover:bg-rose-700 text-white px-10 py-5 rounded-full text-lg font-bold transition-all flex items-center justify-center gap-3 shadow-xl shadow-rose-900/20 group"
+              >
                 Reservar Cita <ArrowRight className="group-hover:translate-x-1 transition-transform" />
+              </button>
+              
+              <a href="#servicos" className="bg-white/5 border border-white/10 text-white px-10 py-5 rounded-full text-lg font-bold hover:bg-white/10 transition-all shadow-sm">
+                Ver Servicios
               </a>
-              <a href="#servicos" className="bg-white/5 border border-white/10 text-white px-10 py-5 rounded-full text-lg font-bold hover:bg-white/10 transition-all shadow-sm">Ver Servicios</a>
             </div>
           </div>
         </div>
@@ -58,7 +74,7 @@ const App: React.FC = () => {
             {[
               { icon: ShieldCheck, title: "Trato Exquisito", text: "Profesionalidad y cercanía para que te sientas como en casa en cada visita." },
               { icon: Users, title: "Unisex & Moderno", text: "Expertos en las últimas tendencias tanto para caballeros como para señoras." },
-              { icon: Sparkles, title: "Gran Experiencia", text: "Décadas de dedicación que avalan la calidad de nuestro servicio en Badajoz." }
+              { icon: Sparkles, title: "Gran Experiencia", text: "Décadas de dedicación que avalan la calidad de nuestro serviço en Badajoz." }
             ].map((item, index) => (
               <div key={index} className="flex flex-col items-center text-center group">
                 <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center text-rose-600 mb-6 group-hover:scale-110 transition-transform">
@@ -72,7 +88,7 @@ const App: React.FC = () => {
         </div>
       </section>
 
-      {/* SERVICIOS */}
+      {/* SERVIÇOS */}
       <section id="servicos" className="py-20 md:py-32 bg-stone-50">
         <div className="container mx-auto px-4 text-left">
           <div className="text-center mb-16">
@@ -81,7 +97,11 @@ const App: React.FC = () => {
           </div>
           <div className="grid md:grid-cols-2 gap-x-16 gap-y-12 max-w-5xl mx-auto">
             {SERVICES.map((s) => (
-              <div key={s.id} className="group border-b border-stone-200 pb-8 hover:border-rose-300 transition-all">
+              <div 
+                key={s.id} 
+                onClick={() => setIsBookingOpen(true)} // Atalho rápido para agendar ao clicar no serviço
+                className="group border-b border-stone-200 pb-8 hover:border-rose-300 transition-all cursor-pointer"
+              >
                 <div className="flex justify-between items-end mb-4">
                   <h3 className="text-2xl font-bold font-serif text-stone-800 group-hover:text-rose-700 transition-colors">{s.name}</h3>
                   <span className="text-rose-600 font-bold">{s.price}</span>
@@ -100,7 +120,7 @@ const App: React.FC = () => {
               <div className="relative z-10 rounded-[3rem] overflow-hidden shadow-2xl aspect-[4/5] border-8 border-stone-100">
                 <img src={IMAGES.interior[1].url} alt="Elías León Peluquería" className="w-full h-full object-cover" />
               </div>
-              <div className="absolute -bottom-8 -left-8 bg-stone-900 text-white p-8 rounded-3xl max-w-xs shadow-2xl z-20">
+              <div className="absolute -bottom-8 -left-8 bg-stone-900 text-white p-8 rounded-3xl max-w-xs shadow-2xl z-20 hidden md:block">
                 <Quote className="text-rose-500 mb-4" size={32} />
                 <p className="font-medium italic text-lg leading-snug">"Un gran profesional y mejor persona. Volveré con toda seguridad."</p>
                 <p className="text-rose-500 text-xs mt-4 uppercase font-bold tracking-widest">Juan Carlos G.</p>
@@ -118,7 +138,7 @@ const App: React.FC = () => {
         </div>
       </section>
 
-      {/* GALERÍA DE TRABAJOS (Cortes/Peinados) */}
+      {/* GALERÍA */}
       <section className="py-20 md:py-24 bg-stone-50">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
@@ -145,7 +165,7 @@ const App: React.FC = () => {
         </div>
       </section>
 
-      {/* SECCIÓN DEL ESPACIO (Usa espaco-03 y 04) */}
+      {/* SECCIÓN DEL ESPACIO */}
       <section className="py-20 bg-white">
         <div className="container mx-auto px-4">
           <div className="grid md:grid-cols-2 gap-12 items-center">
