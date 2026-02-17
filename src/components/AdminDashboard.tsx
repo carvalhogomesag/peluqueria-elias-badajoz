@@ -4,9 +4,11 @@ import { collection, query, where, orderBy, onSnapshot, deleteDoc, doc, addDoc, 
 import { 
   LogOut, Trash2, Calendar as CalendarIcon, User, 
   Phone, Clock, Loader2, Scissors, Plus, LayoutDashboard, 
-  Settings, Briefcase, Info 
+  Settings, Briefcase, LayoutList, CalendarDays
 } from 'lucide-react';
 import { Appointment, Service } from '../types';
+// IMPORTANTE: Certifique-se de que criou o arquivo AdminCalendar.tsx antes de salvar
+import AdminCalendar from './AdminCalendar';
 
 interface AdminDashboardProps {
   onLogout: () => void;
@@ -15,6 +17,7 @@ interface AdminDashboardProps {
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   // --- ESTADOS ---
   const [activeTab, setActiveTab] = useState<'appointments' | 'services'>('appointments');
+  const [appointmentsMode, setAppointmentsMode] = useState<'list' | 'calendar'>('calendar'); // Padrão: Calendário
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [dbServices, setDbServices] = useState<Service[]>([]);
   const [loadingApp, setLoadingApp] = useState(true);
@@ -43,7 +46,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       setLoadingApp(false);
     });
 
-    // 2. Escuta de Serviços (Coleção 'services')
+    // 2. Escuta de Serviços
     const qServ = query(collection(db, "services"), orderBy("name", "asc"));
     const unsubServ = onSnapshot(qServ, (snapshot) => {
       setDbServices(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Service)));
@@ -63,16 +66,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       alert("Por favor, rellena el nombre y el precio.");
       return;
     }
-
     try {
-      await addDoc(collection(db, "services"), {
-        ...newService,
-        createdAt: serverTimestamp()
-      });
+      await addDoc(collection(db, "services"), { ...newService, createdAt: serverTimestamp() });
       setNewService({ name: '', description: '', price: '', duration: 30 });
-      alert("Servicio creado con éxito.");
     } catch (error) {
-      console.error(error);
       alert("Error ao criar serviço.");
     }
   };
@@ -91,8 +88,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[120] bg-stone-950 flex flex-col">
-      {/* HEADER DINÂMICO */}
+    <div className="fixed inset-0 z-[120] bg-stone-950 flex flex-col text-left">
+      {/* HEADER */}
       <header className="bg-stone-900 border-b border-rose-900/20 p-6 sticky top-0 z-30">
         <div className="container mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="flex items-center gap-4">
@@ -105,7 +102,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
             </div>
           </div>
 
-          {/* NAVEGAÇÃO DE ABAS */}
+          {/* ABAS PRINCIPAIS */}
           <div className="flex bg-stone-800/50 p-1 rounded-2xl border border-white/5">
             <button 
               onClick={() => setActiveTab('appointments')}
@@ -127,85 +124,95 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
         </div>
       </header>
 
-      {/* CONTEÚDO PRINCIPAL */}
+      {/* CONTEÚDO */}
       <main className="flex-1 overflow-y-auto p-4 md:p-8">
         <div className="container mx-auto max-w-6xl">
 
-          {/* TAB: AGENDAMENTOS */}
+          {/* TAB: CITAS */}
           {activeTab === 'appointments' && (
             <div className="animate-in fade-in duration-500">
-              <h3 className="text-white font-bold mb-8 flex items-center gap-3"><CalendarIcon className="text-rose-500"/> Próximas Reservas</h3>
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                <h3 className="text-white font-bold flex items-center gap-3">
+                  <CalendarIcon className="text-rose-500"/> Próximas Reservas
+                </h3>
+                
+                {/* SELETOR DE MODO: LISTA OU CALENDÁRIO */}
+                <div className="flex bg-stone-900 border border-white/5 p-1 rounded-xl">
+                  <button 
+                    onClick={() => setAppointmentsMode('calendar')}
+                    className={`p-2 rounded-lg transition-all ${appointmentsMode === 'calendar' ? 'bg-stone-800 text-rose-500 shadow-inner' : 'text-stone-600 hover:text-stone-400'}`}
+                    title="Vista de Calendario"
+                  >
+                    <CalendarDays size={20} />
+                  </button>
+                  <button 
+                    onClick={() => setAppointmentsMode('list')}
+                    className={`p-2 rounded-lg transition-all ${appointmentsMode === 'list' ? 'bg-stone-800 text-rose-500 shadow-inner' : 'text-stone-600 hover:text-stone-400'}`}
+                    title="Vista de Lista"
+                  >
+                    <LayoutList size={20} />
+                  </button>
+                </div>
+              </div>
+
               {loadingApp ? (
                 <div className="flex justify-center py-20"><Loader2 className="animate-spin text-rose-500" size={40} /></div>
-              ) : appointments.length === 0 ? (
-                <div className="text-center py-32 bg-stone-900/20 rounded-[3rem] border border-dashed border-white/5 text-stone-500 italic">No hay citas registradas.</div>
               ) : (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {appointments.map(app => (
-                    <div key={app.id} className="bg-stone-900 border border-white/5 p-6 rounded-[2.5rem] relative group">
-                      <div className="flex justify-between items-start mb-6">
-                        <span className="bg-rose-600/10 text-rose-500 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">{app.serviceName}</span>
-                        <button onClick={() => handleDeleteApp(app.id!)} className="text-stone-700 hover:text-red-500 transition-colors"><Trash2 size={18} /></button>
+                <>
+                  {/* MODO CALENDÁRIO */}
+                  {appointmentsMode === 'calendar' && (
+                    <AdminCalendar appointments={appointments} />
+                  )}
+
+                  {/* MODO LISTA (O QUE VOCÊ JÁ TINHA) */}
+                  {appointmentsMode === 'list' && (
+                    appointments.length === 0 ? (
+                      <div className="text-center py-32 bg-stone-900/20 rounded-[3rem] border border-dashed border-white/5 text-stone-500 italic">No hay citas registradas.</div>
+                    ) : (
+                      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        {appointments.map(app => (
+                          <div key={app.id} className="bg-stone-900 border border-white/5 p-6 rounded-[2.5rem] relative group animate-in slide-in-from-bottom-2">
+                            <div className="flex justify-between items-start mb-6">
+                              <span className="bg-rose-600/10 text-rose-500 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">{app.serviceName}</span>
+                              <button onClick={() => handleDeleteApp(app.id!)} className="text-stone-700 hover:text-red-500 transition-colors"><Trash2 size={18} /></button>
+                            </div>
+                            <div className="space-y-3 text-left">
+                              <div className="text-white font-bold text-lg flex items-center gap-2"><User size={16} className="text-stone-500"/> {app.clientName}</div>
+                              <div className="text-stone-400 text-sm flex items-center gap-2"><CalendarIcon size={14}/> {app.date}</div>
+                              <div className="text-stone-400 text-sm flex items-center gap-2"><Clock size={14}/> {app.startTime} - {app.endTime}</div>
+                              <div className="pt-4 border-t border-white/5"><a href={`tel:${app.clientPhone}`} className="text-rose-500 font-bold flex items-center gap-2"><Phone size={14}/> {app.clientPhone}</a></div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                      <div className="space-y-3 text-left">
-                        <div className="text-white font-bold text-lg flex items-center gap-2"><User size={16} className="text-stone-500"/> {app.clientName}</div>
-                        <div className="text-stone-400 text-sm flex items-center gap-2"><CalendarIcon size={14}/> {app.date}</div>
-                        <div className="text-stone-400 text-sm flex items-center gap-2"><Clock size={14}/> {app.startTime} - {app.endTime}</div>
-                        <div className="pt-4 border-t border-white/5"><a href={`tel:${app.clientPhone}`} className="text-rose-500 font-bold flex items-center gap-2"><Phone size={14}/> {app.clientPhone}</a></div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    )
+                  )}
+                </>
               )}
             </div>
           )}
 
-          {/* TAB: SERVIÇOS (NOVO) */}
+          {/* TAB: SERVIÇOS (O QUE VOCÊ JÁ TINHA) */}
           {activeTab === 'services' && (
             <div className="animate-in slide-in-from-bottom-4 duration-500 space-y-10">
-              
-              {/* Formulário de Criação */}
               <div className="bg-stone-900 border border-rose-900/20 p-6 md:p-8 rounded-[3rem] shadow-xl">
                 <h3 className="text-white font-bold mb-6 flex items-center gap-2"><Plus className="text-rose-500"/> Añadir Nuevo Servicio</h3>
                 <form onSubmit={handleAddService} className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="md:col-span-2">
                     <label className="text-[10px] uppercase font-black text-stone-500 mb-2 block">Nombre del Servicio</label>
-                    <input 
-                      required
-                      value={newService.name} 
-                      onChange={e => setNewService({...newService, name: e.target.value})}
-                      className="w-full bg-stone-950 border border-white/5 rounded-2xl p-4 text-white outline-none focus:border-rose-500/50"
-                      placeholder="Ej: Corte Clásico"
-                    />
+                    <input required value={newService.name} onChange={e => setNewService({...newService, name: e.target.value})} className="w-full bg-stone-950 border border-white/5 rounded-2xl p-4 text-white outline-none focus:border-rose-500/50" placeholder="Ej: Corte Clásico" />
                   </div>
                   <div>
                     <label className="text-[10px] uppercase font-black text-stone-500 mb-2 block">Precio</label>
-                    <input 
-                      required
-                      value={newService.price} 
-                      onChange={e => setNewService({...newService, price: e.target.value})}
-                      className="w-full bg-stone-950 border border-white/5 rounded-2xl p-4 text-white outline-none focus:border-rose-500/50"
-                      placeholder="15€"
-                    />
+                    <input required value={newService.price} onChange={e => setNewService({...newService, price: e.target.value})} className="w-full bg-stone-950 border border-white/5 rounded-2xl p-4 text-white outline-none focus:border-rose-500/50" placeholder="15€" />
                   </div>
                   <div>
                     <label className="text-[10px] uppercase font-black text-stone-500 mb-2 block">Duración (Minutos)</label>
-                    <input 
-                      required
-                      type="number"
-                      value={newService.duration} 
-                      onChange={e => setNewService({...newService, duration: parseInt(e.target.value)})}
-                      className="w-full bg-stone-950 border border-white/5 rounded-2xl p-4 text-white outline-none focus:border-rose-500/50"
-                    />
+                    <input required type="number" value={newService.duration} onChange={e => setNewService({...newService, duration: parseInt(e.target.value)})} className="w-full bg-stone-950 border border-white/5 rounded-2xl p-4 text-white outline-none focus:border-rose-500/50" />
                   </div>
                   <div className="md:col-span-2">
                     <label className="text-[10px] uppercase font-black text-stone-500 mb-2 block">Descripción Corta</label>
-                    <input 
-                      value={newService.description} 
-                      onChange={e => setNewService({...newService, description: e.target.value})}
-                      className="w-full bg-stone-950 border border-white/5 rounded-2xl p-4 text-white outline-none focus:border-rose-500/50"
-                      placeholder="Ej: Corte a tijera y lavado..."
-                    />
+                    <input value={newService.description} onChange={e => setNewService({...newService, description: e.target.value})} className="w-full bg-stone-950 border border-white/5 rounded-2xl p-4 text-white outline-none focus:border-rose-500/50" placeholder="Ej: Corte a tijera..." />
                   </div>
                   <button type="submit" className="bg-rose-600 hover:bg-rose-700 text-white font-black rounded-2xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-rose-900/20">
                     <Plus size={20} /> Crear Servicio
@@ -213,13 +220,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                 </form>
               </div>
 
-              {/* Listagem de Serviços */}
               <div className="space-y-4">
                 <h3 className="text-white font-bold flex items-center gap-2"><Briefcase className="text-rose-500"/> Servicios Activos</h3>
                 {loadingServ ? (
                   <div className="flex justify-center py-10"><Loader2 className="animate-spin text-rose-500" /></div>
-                ) : dbServices.length === 0 ? (
-                  <p className="text-stone-500 italic">No hay servicios creados aún.</p>
                 ) : (
                   <div className="grid gap-4">
                     {dbServices.map(s => (
@@ -242,7 +246,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
         </div>
       </main>
 
-      {/* FOOTER */}
       <footer className="p-6 text-center text-stone-700 text-[10px] uppercase tracking-[0.3em] bg-stone-950 border-t border-white/5">
         Gestión Elías León • Desarrollado por Allan Dev
       </footer>
