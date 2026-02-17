@@ -1,26 +1,47 @@
-import React, { useState } from 'react'; // Adicionado useState
+import React, { useState } from 'react';
 import { 
   Scissors, MapPin, Phone, Clock, Star, 
   CheckCircle2, Quote, ArrowRight, ShieldCheck, 
   Heart, Users, ExternalLink, Camera, Sparkles 
 } from 'lucide-react';
+
+// COMPONENTES
 import Navbar from './components/Navbar';
-import BookingModal from './components/BookingModal'; // Importado o novo componente
+import BookingModal from './components/BookingModal';
+import AdminLogin from './components/AdminLogin';
+import AdminDashboard from './components/AdminDashboard';
+
+// DADOS E IMAGENS
 import { BUSINESS_INFO, SERVICES, REVIEWS, IMAGES } from './constants';
 import mapaImg from './assets/images/mapa-localizacao.webp'; 
 
 const MAP_SOURCE = mapaImg;
 
 const App: React.FC = () => {
-  // Estado para controlar a visibilidade da agenda
+  // --- ESTADOS DE CONTROLO ---
   const [isBookingOpen, setIsBookingOpen] = useState(false);
+  const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
+  const [isDashboardOpen, setIsDashboardOpen] = useState(false);
 
   return (
     // TEMA: Gris oscuro y Rosa Carmesim (Rose-600)
     <div className="min-h-screen flex flex-col selection:bg-rose-600/30 selection:text-rose-200 bg-stone-50">
-      <Navbar />
+      
+      {/* NAVBAR com a função secreta de 5 cliques injetada */}
+      <Navbar onAdminClick={() => setIsAdminLoginOpen(true)} />
 
-      {/* COMPONENTE DE AGENDAMENTO (Invisível até ser ativado) */}
+      {/* COMPONENTES ADMINISTRATIVOS */}
+      <AdminLogin 
+        isOpen={isAdminLoginOpen} 
+        onClose={() => setIsAdminLoginOpen(false)} 
+        onLoginSuccess={() => setIsDashboardOpen(true)}
+      />
+      
+      {isDashboardOpen && (
+        <AdminDashboard onLogout={() => setIsDashboardOpen(false)} />
+      )}
+
+      {/* COMPONENTE DE AGENDAMENTO PARA O CLIENTE */}
       <BookingModal 
         isOpen={isBookingOpen} 
         onClose={() => setIsBookingOpen(false)} 
@@ -51,17 +72,13 @@ const App: React.FC = () => {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-5 justify-center px-4">
-              {/* BOTÃO ATUALIZADO: Agora abre o Modal interno */}
               <button 
                 onClick={() => setIsBookingOpen(true)}
                 className="bg-rose-600 hover:bg-rose-700 text-white px-10 py-5 rounded-full text-lg font-bold transition-all flex items-center justify-center gap-3 shadow-xl shadow-rose-900/20 group"
               >
                 Reservar Cita <ArrowRight className="group-hover:translate-x-1 transition-transform" />
               </button>
-              
-              <a href="#servicos" className="bg-white/5 border border-white/10 text-white px-10 py-5 rounded-full text-lg font-bold hover:bg-white/10 transition-all shadow-sm">
-                Ver Servicios
-              </a>
+              <a href="#servicos" className="bg-white/5 border border-white/10 text-white px-10 py-5 rounded-full text-lg font-bold hover:bg-white/10 transition-all shadow-sm">Ver Servicios</a>
             </div>
           </div>
         </div>
@@ -74,7 +91,7 @@ const App: React.FC = () => {
             {[
               { icon: ShieldCheck, title: "Trato Exquisito", text: "Profesionalidad y cercanía para que te sientas como en casa en cada visita." },
               { icon: Users, title: "Unisex & Moderno", text: "Expertos en las últimas tendencias tanto para caballeros como para señoras." },
-              { icon: Sparkles, title: "Gran Experiencia", text: "Décadas de dedicación que avalan la calidad de nuestro serviço en Badajoz." }
+              { icon: Sparkles, title: "Gran Experiencia", text: "Décadas de dedicación que avalan la qualidade de nuestro serviço en Badajoz." }
             ].map((item, index) => (
               <div key={index} className="flex flex-col items-center text-center group">
                 <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center text-rose-600 mb-6 group-hover:scale-110 transition-transform">
@@ -99,7 +116,7 @@ const App: React.FC = () => {
             {SERVICES.map((s) => (
               <div 
                 key={s.id} 
-                onClick={() => setIsBookingOpen(true)} // Atalho rápido para agendar ao clicar no serviço
+                onClick={() => setIsBookingOpen(true)}
                 className="group border-b border-stone-200 pb-8 hover:border-rose-300 transition-all cursor-pointer"
               >
                 <div className="flex justify-between items-end mb-4">
@@ -113,7 +130,7 @@ const App: React.FC = () => {
         </div>
       </section>
 
-      {/* SOBRE (Usa la segunda foto del interior) */}
+      {/* SOBRE */}
       <section id="sobre" className="py-20 md:py-32 bg-white overflow-hidden text-left">
         <div className="container mx-auto px-4 grid lg:grid-cols-2 gap-16 items-center">
             <div className="relative">
