@@ -6,7 +6,7 @@ export const BUSINESS_INFO = {
   city: '06011 Badajoz, España',
   openingHours: 'Lunes a Sábado: 11:00 - 21:00',
   bookingUrl: 'https://wa.me/34924252101', 
-  googleMapsUrl: 'https://maps.app.goo.gl/kqLaLyWrFaBnyocy6', // Link enviado
+  googleMapsUrl: 'https://maps.app.goo.gl/1MAG4dJdweFEPDDA9', // Link enviado
   instagramUrl: 'https://instagram.com/' 
 };
 
