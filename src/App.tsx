@@ -1,9 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; // Adicionado useEffect
 import { 
   Scissors, MapPin, Phone, Clock, Star, 
   CheckCircle2, Quote, ArrowRight, ShieldCheck, 
-  Heart, Users, ExternalLink, Camera, Sparkles 
+  Heart, Users, ExternalLink, Camera, Sparkles, Loader2
 } from 'lucide-react';
+
+// FIREBASE
+import { db } from './firebase';
+import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 
 // COMPONENTES
 import Navbar from './components/Navbar';
@@ -12,7 +16,8 @@ import AdminLogin from './components/AdminLogin';
 import AdminDashboard from './components/AdminDashboard';
 
 // DADOS E IMAGENS
-import { BUSINESS_INFO, SERVICES, REVIEWS, IMAGES } from './constants';
+import { BUSINESS_INFO, REVIEWS, IMAGES } from './constants';
+import { Service } from './types';
 import mapaImg from './assets/images/mapa-localizacao.webp'; 
 
 const MAP_SOURCE = mapaImg;
@@ -23,11 +28,29 @@ const App: React.FC = () => {
   const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
   const [isDashboardOpen, setIsDashboardOpen] = useState(false);
 
+  // --- ESTADOS DE DADOS DINÂMICOS ---
+  const [dynamicServices, setDynamicServices] = useState<Service[]>([]);
+  const [loadingServices, setLoadingServices] = useState(true);
+
+  // --- ESCUTAR SERVIÇOS DO FIREBASE ---
+  useEffect(() => {
+    const q = query(collection(db, "services"), orderBy("name", "asc"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const servicesList = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Service));
+      setDynamicServices(servicesList);
+      setLoadingServices(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   return (
-    // TEMA: Gris oscuro y Rosa Carmesim (Rose-600)
     <div className="min-h-screen flex flex-col selection:bg-rose-600/30 selection:text-rose-200 bg-stone-50">
       
-      {/* NAVBAR com a função secreta de 5 cliques injetada */}
+      {/* NAVBAR */}
       <Navbar onAdminClick={() => setIsAdminLoginOpen(true)} />
 
       {/* COMPONENTES ADMINISTRATIVOS */}
@@ -41,10 +64,12 @@ const App: React.FC = () => {
         <AdminDashboard onLogout={() => setIsDashboardOpen(false)} />
       )}
 
-      {/* COMPONENTE DE AGENDAMENTO PARA O CLIENTE */}
+      {/* MODAL DE AGENDAMENTO (Passando os serviços dinâmicos) */}
       <BookingModal 
         isOpen={isBookingOpen} 
         onClose={() => setIsBookingOpen(false)} 
+        // Note: Se o seu BookingModal ainda importa SERVICES das constantes, 
+        // poderemos ajustá-lo no próximo passo para receber via props se preferir
       />
 
       {/* HERO SECTION */}
@@ -105,28 +130,39 @@ const App: React.FC = () => {
         </div>
       </section>
 
-      {/* SERVIÇOS */}
+      {/* SERVIÇOS (AGORA DINÂMICOS DO FIREBASE) */}
       <section id="servicos" className="py-20 md:py-32 bg-stone-50">
         <div className="container mx-auto px-4 text-left">
           <div className="text-center mb-16">
             <h4 className="text-rose-600 text-sm font-bold uppercase tracking-[0.4em] mb-4">Nuestra Especialidad</h4>
             <h2 className="font-serif text-4xl md:text-6xl font-bold text-stone-900">Servicios Profesionales</h2>
           </div>
-          <div className="grid md:grid-cols-2 gap-x-16 gap-y-12 max-w-5xl mx-auto">
-            {SERVICES.map((s) => (
-              <div 
-                key={s.id} 
-                onClick={() => setIsBookingOpen(true)}
-                className="group border-b border-stone-200 pb-8 hover:border-rose-300 transition-all cursor-pointer"
-              >
-                <div className="flex justify-between items-end mb-4">
-                  <h3 className="text-2xl font-bold font-serif text-stone-800 group-hover:text-rose-700 transition-colors">{s.name}</h3>
-                  <span className="text-rose-600 font-bold">{s.price}</span>
+
+          {loadingServices ? (
+            <div className="flex justify-center py-20">
+              <Loader2 className="animate-spin text-rose-600" size={40} />
+            </div>
+          ) : dynamicServices.length === 0 ? (
+            <div className="text-center text-stone-500 italic py-10">
+              Cargando nuestra carta de servicios...
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 gap-x-16 gap-y-12 max-w-5xl mx-auto">
+              {dynamicServices.map((s) => (
+                <div 
+                  key={s.id} 
+                  onClick={() => setIsBookingOpen(true)}
+                  className="group border-b border-stone-200 pb-8 hover:border-rose-300 transition-all cursor-pointer"
+                >
+                  <div className="flex justify-between items-end mb-4">
+                    <h3 className="text-2xl font-bold font-serif text-stone-800 group-hover:text-rose-700 transition-colors">{s.name}</h3>
+                    <span className="text-rose-600 font-bold">{s.price}</span>
+                  </div>
+                  <p className="text-stone-500 text-sm italic">{s.description}</p>
                 </div>
-                <p className="text-stone-500 text-sm italic">{s.description}</p>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -189,7 +225,7 @@ const App: React.FC = () => {
              <div className="order-2 md:order-1 space-y-6 text-left">
                 <h3 className="font-serif text-3xl md:text-4xl text-stone-900 italic">Un Espacio para Ti</h3>
                 <p className="text-stone-600 leading-relaxed">
-                  Nuestro salón ha sido diseñado para ofrecerte el máximo confort. Un ambiente profesional y acogedor donde cada detalle cuenta para que tu experiencia sea perfecta.
+                  Nuestro salón ha sido diseñado para ofrecerte el máximo confort. Un ambiente profesional y acogedor donde cada detalle conta para que tu experiencia sea perfecta.
                 </p>
                 <div className="flex gap-4">
                    <div className="rounded-2xl overflow-hidden h-40 flex-1 border border-stone-100">
