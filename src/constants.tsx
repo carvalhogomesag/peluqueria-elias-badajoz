@@ -1,3 +1,5 @@
+// src/constants.tsx
+
 export const BUSINESS_INFO = {
   name: "Peluquería Elías",
   owner: "Elías León",
@@ -6,15 +8,39 @@ export const BUSINESS_INFO = {
   city: '06011 Badajoz, España',
   openingHours: 'Lunes a Sábado: 11:00 - 21:00',
   bookingUrl: 'https://wa.me/34924252101', 
-  googleMapsUrl: 'https://maps.app.goo.gl/1MAG4dJdweFEPDDA9', // Link enviado
+  googleMapsUrl: 'https://maps.app.goo.gl/1MAG4dJdweFEPDDA9',
   instagramUrl: 'https://instagram.com/' 
 };
 
 export const SERVICES = [
-  { id: 1, name: 'Corte Unisex', description: 'Cortes clásicos y modernos adaptados a tu estilo personal.', price: 'Desde 12€' },
-  { id: 2, name: 'Peinados y Estilo', description: 'Especialistas en peinados para eventos y cuidado diario.', price: 'Consultar' },
-  { id: 3, name: 'Color y Mechas', description: 'Técnicas avanzadas de coloración para un brillo espectacular.', price: 'Consultar' },
-  { id: 4, name: 'Arreglo de Barba', description: 'Cuidado tradicional de la barba con acabado profesional.', price: 'Desde 8€' }
+  { 
+    id: '1', 
+    name: 'Corte Unisex', 
+    description: 'Cortes clásicos y modernos adaptados a tu estilo personal.', 
+    price: 'Desde 12€',
+    duration: 30 // 30 minutos
+  },
+  { 
+    id: '2', 
+    name: 'Peinados y Estilo', 
+    description: 'Especialistas en peinados para eventos y cuidado diario.', 
+    price: 'Consultar',
+    duration: 45 // 45 minutos
+  },
+  { 
+    id: '3', 
+    name: 'Color y Mechas', 
+    description: 'Técnicas avanzadas de coloración para un brillo espectacular.', 
+    price: 'Consultar',
+    duration: 90 // 90 minutos
+  },
+  { 
+    id: '4', 
+    name: 'Arreglo de Barba', 
+    description: 'Cuidado tradicional de la barba con acabado profesional.', 
+    price: 'Desde 8€',
+    duration: 20 // 20 minutos
+  }
 ];
 
 export const REVIEWS = [
