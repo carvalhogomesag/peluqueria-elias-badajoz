@@ -13,7 +13,7 @@ import { Appointment, TimeBlock } from '../types';
 interface AdminCalendarProps {
   appointments: Appointment[];
   timeBlocks: TimeBlock[];
-  onEditAppointment: (appt: Appointment) => void; // Nova prop para abrir edição
+  onEditAppointment: (appt: Appointment) => void;
 }
 
 const AdminCalendar: React.FC<AdminCalendarProps> = ({ appointments, timeBlocks, onEditAppointment }) => {
@@ -29,7 +29,7 @@ const AdminCalendar: React.FC<AdminCalendarProps> = ({ appointments, timeBlocks,
   const getWeekDays = (date: Date) => {
     const start = new Date(date);
     const day = start.getDay();
-    const diff = start.getDate() - day + (day === 0 ? -6 : 1); // Ajusta para começar na segunda
+    const diff = start.getDate() - day + (day === 0 ? -6 : 1); // Segunda como primeiro dia
     start.setDate(diff);
     
     return Array.from({ length: 6 }, (_, i) => { // Segunda a Sábado
@@ -167,19 +167,20 @@ const AdminCalendar: React.FC<AdminCalendarProps> = ({ appointments, timeBlocks,
               const dayBlocks = timeBlocks.filter(b => isBlockActiveOnDay(b, day));
 
               return (
-                <div key={colIdx} className="relative border-r border-white/5 last:border-0 group">
+                <div key={colIdx} className="relative border-r border-white/5 last:border-0 pointer-events-auto">
+                  {/* Linhas de fundo */}
                   {hours.map(h => (
                     <div key={h} className="border-b border-white/[0.02]" style={{ height: `${HOUR_HEIGHT}px` }} />
                   ))}
 
-                  {/* BLOQUEIOS */}
+                  {/* BLOQUEIOS (BACKGROUND) */}
                   {dayBlocks.map(block => {
                     const { top } = getTimeData(block.startTime);
                     const height = calculateHeight(block.startTime, block.endTime);
                     return (
                       <div
                         key={block.id}
-                        className="absolute left-0 right-0 z-10 bg-stone-800/40 backdrop-blur-[1px] border-y border-white/5 flex items-center justify-center overflow-hidden"
+                        className="absolute left-0 right-0 z-10 bg-stone-800/40 backdrop-blur-[1px] border-y border-white/5 flex items-center justify-center overflow-hidden pointer-events-none"
                         style={{ top: `${top}px`, height: `${height}px` }}
                       >
                         <div className="flex items-center gap-1.5 opacity-20 rotate-[-5deg]">
@@ -190,18 +191,23 @@ const AdminCalendar: React.FC<AdminCalendarProps> = ({ appointments, timeBlocks,
                     );
                   })}
 
-                  {/* AGENDAMENTOS (AGORA CLICÁVEIS) */}
+                  {/* AGENDAMENTOS (FOREGROUND - CLICÁVEIS) */}
                   {dayAppointments.map(app => {
                     const { top } = getTimeData(app.startTime);
                     const height = calculateHeight(app.startTime, app.endTime);
                     return (
                       <div
                         key={app.id}
-                        onClick={() => onEditAppointment(app)} // Gatilho de edição
-                        className="absolute left-1.5 right-1.5 z-20 rounded-xl bg-stone-900 border-l-4 border-rose-600 p-2 shadow-2xl ring-1 ring-white/5 hover:ring-rose-500/50 hover:bg-stone-800 hover:scale-[1.02] hover:z-30 transition-all cursor-pointer group/card"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation(); // Impede o clique de fugir para o pai
+                          onEditAppointment(app);
+                        }}
+                        className="absolute left-1.5 right-1.5 z-40 rounded-xl bg-stone-900 border-l-4 border-rose-600 p-2 shadow-2xl ring-1 ring-white/5 hover:ring-rose-500/50 hover:bg-stone-800 hover:scale-[1.02] hover:z-50 transition-all cursor-pointer group/card select-none"
                         style={{ top: `${top}px`, height: `${height}px` }}
                       >
-                        <div className="flex flex-col h-full overflow-hidden">
+                        {/* pointer-events-none no conteúdo garante que o clique caia no pai div */}
+                        <div className="flex flex-col h-full overflow-hidden pointer-events-none">
                           <div className="flex justify-between items-start mb-1">
                             <span className="text-[9px] font-black text-rose-500 uppercase leading-none truncate pr-1">
                               {app.startTime}
