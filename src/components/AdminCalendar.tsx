@@ -1,122 +1,240 @@
 import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight, Clock, User, Phone } from 'lucide-react';
-import { Appointment } from '../types';
+import { 
+  ChevronLeft, 
+  ChevronRight, 
+  Clock, 
+  User, 
+  Scissors, 
+  Lock, 
+  Calendar as CalendarIcon 
+} from 'lucide-react';
+import { Appointment, TimeBlock } from '../types';
 
 interface AdminCalendarProps {
   appointments: Appointment[];
+  timeBlocks: TimeBlock[];
 }
 
-const AdminCalendar: React.FC<AdminCalendarProps> = ({ appointments }) => {
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState<string | null>(
-    new Date().toISOString().split('T')[0]
-  );
+const AdminCalendar: React.FC<AdminCalendarProps> = ({ appointments, timeBlocks }) => {
+  const [viewDate, setViewDate] = useState(new Date());
 
-  // --- LÓGICA DO CALENDÁRIO ---
-  const daysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
-  const firstDayOfMonth = (year: number, month: number) => new Date(year, month, 1).getDay();
+  // --- CONFIGURAÇÃO DA GRADE ---
+  const HOUR_HEIGHT = 80; // pixels por hora
+  const START_HOUR = 8;   // 08:00
+  const END_HOUR = 21;    // 21:00
+  const hours = Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => START_HOUR + i);
 
-  const handlePrevMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1));
-  const handleNextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1));
+  // --- LÓGICA DE DATAS (SEMANA) ---
+  const getWeekDays = (date: Date) => {
+    const start = new Date(date);
+    const day = start.getDay();
+    const diff = start.getDate() - day + (day === 0 ? -6 : 1); // Ajusta para começar na segunda
+    start.setDate(diff);
+    
+    return Array.from({ length: 6 }, (_, i) => { // Segunda a Sábado
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      return d;
+    });
+  };
 
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth();
-  const totalDays = daysInMonth(year, month);
-  const startDay = firstDayOfMonth(year, month);
+  const weekDays = getWeekDays(viewDate);
+  const weekRangeLabel = `${weekDays[0].toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })} - ${weekDays[5].toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}`;
 
-  // Ajuste para começar na Segunda-feira (0: Dom, 1: Seg...)
-  const adjustedStartDay = startDay === 0 ? 6 : startDay - 1;
+  const changeWeek = (offset: number) => {
+    const next = new Date(viewDate);
+    next.setDate(viewDate.getDate() + (offset * 7));
+    setViewDate(next);
+  };
 
-  const monthName = currentDate.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
-  const weekDays = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+  // --- AUXILIARES DE POSICIONAMENTO ---
+  const getTimeData = (timeStr: string) => {
+    const [h, m] = timeStr.split(':').map(Number);
+    const totalMinutes = (h * 60 + m) - (START_HOUR * 60);
+    return {
+      top: (totalMinutes / 60) * HOUR_HEIGHT,
+      minutes: totalMinutes
+    };
+  };
 
-  // Filtrar agendamentos do dia selecionado
-  const appointmentsForSelectedDay = appointments.filter(app => app.date === selectedDate);
+  const calculateHeight = (start: string, end: string) => {
+    const [sh, sm] = start.split(':').map(Number);
+    const [eh, em] = end.split(':').map(Number);
+    const duration = (eh * 60 + em) - (sh * 60 + sm);
+    return (duration / 60) * HOUR_HEIGHT;
+  };
+
+  // --- VERIFICAÇÃO DE BLOQUEIOS RECORRENTES ---
+  const isBlockActiveOnDay = (block: TimeBlock, targetDate: Date) => {
+    const blockDate = new Date(block.date);
+    blockDate.setHours(0,0,0,0);
+    const target = new Date(targetDate);
+    target.setHours(0,0,0,0);
+
+    if (target.getTime() === blockDate.getTime()) return true;
+    if (!block.isRecurring || target < blockDate) return false;
+
+    const diffDays = Math.round((target.getTime() - blockDate.getTime()) / (1000 * 60 * 60 * 24));
+    const repeats = block.repeatCount || 0;
+
+    switch (block.recurringType) {
+      case 'daily':
+        return diffDays <= repeats;
+      case 'weekly':
+        return diffDays % 7 === 0 && diffDays / 7 <= repeats;
+      case 'monthly':
+        return target.getDate() === blockDate.getDate() && 
+               (target.getMonth() - blockDate.getMonth() + (12 * (target.getFullYear() - blockDate.getFullYear()))) <= repeats;
+      default:
+        return false;
+    }
+  };
 
   return (
-    <div className="grid lg:grid-cols-3 gap-8 animate-in fade-in duration-500">
+    <div className="flex flex-col h-full animate-in fade-in duration-700">
       
-      {/* COLUNA DO CALENDÁRIO (GRELHA) */}
-      <div className="lg:col-span-2 bg-stone-900 border border-white/5 p-6 rounded-[2.5rem] shadow-xl">
-        <div className="flex justify-between items-center mb-8 px-2">
-          <h3 className="text-xl font-serif font-bold text-white capitalize">{monthName}</h3>
-          <div className="flex gap-2">
-            <button onClick={handlePrevMonth} className="p-2 hover:bg-white/5 rounded-full text-stone-400 hover:text-white transition-all"><ChevronLeft size={20}/></button>
-            <button onClick={handleNextMonth} className="p-2 hover:bg-white/5 rounded-full text-stone-400 hover:text-white transition-all"><ChevronRight size={20}/></button>
+      {/* CABEÇALHO DA AGENDA */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+        <div className="flex items-center gap-4">
+          <div className="bg-rose-600 p-2 rounded-xl shadow-lg shadow-rose-900/20">
+            <CalendarIcon className="text-white" size={20} />
+          </div>
+          <div>
+            <h3 className="text-white font-bold text-lg leading-tight">Vista Semanal</h3>
+            <p className="text-rose-500 text-[10px] font-black uppercase tracking-widest">{weekRangeLabel}</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-7 mb-4">
-          {weekDays.map(day => (
-            <div key={day} className="text-center text-[10px] font-black text-stone-600 uppercase tracking-widest py-2">{day}</div>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-7 gap-1">
-          {/* Espaços vazios do início do mês */}
-          {[...Array(adjustedStartDay)].map((_, i) => (
-            <div key={`empty-${i}`} className="aspect-square"></div>
-          ))}
-
-          {/* Dias do mês */}
-          {[...Array(totalDays)].map((_, i) => {
-            const dayNum = i + 1;
-            const dateStr = `${year}-${(month + 1).toString().padStart(2, '0')}-${dayNum.toString().padStart(2, '0')}`;
-            const hasAppointments = appointments.some(app => app.date === dateStr);
-            const isSelected = selectedDate === dateStr;
-            const isToday = new Date().toISOString().split('T')[0] === dateStr;
-
-            return (
-              <button
-                key={dayNum}
-                onClick={() => setSelectedDate(dateStr)}
-                className={`aspect-square flex flex-col items-center justify-center rounded-2xl transition-all relative group
-                  ${isSelected ? 'bg-rose-600 text-white shadow-lg' : 'hover:bg-white/5 text-stone-400'}
-                  ${isToday && !isSelected ? 'border border-rose-500/50' : ''}
-                `}
-              >
-                <span className={`text-sm font-bold ${isSelected ? 'text-white' : ''}`}>{dayNum}</span>
-                {hasAppointments && (
-                  <div className={`w-1 h-1 rounded-full mt-1 ${isSelected ? 'bg-white' : 'bg-rose-500'}`}></div>
-                )}
-              </button>
-            );
-          })}
+        <div className="flex items-center bg-stone-900 border border-white/5 p-1 rounded-2xl">
+          <button onClick={() => changeWeek(-1)} className="p-2 hover:bg-stone-800 rounded-xl text-stone-400 hover:text-white transition-all">
+            <ChevronLeft size={20}/>
+          </button>
+          <button 
+            onClick={() => setViewDate(new Date())} 
+            className="px-4 py-2 text-xs font-bold text-stone-300 hover:text-rose-500 transition-colors"
+          >
+            HOY
+          </button>
+          <button onClick={() => changeWeek(1)} className="p-2 hover:bg-stone-800 rounded-xl text-stone-400 hover:text-white transition-all">
+            <ChevronRight size={20}/>
+          </button>
         </div>
       </div>
 
-      {/* COLUNA DE DETALHES DO DIA */}
-      <div className="bg-stone-900 border border-white/5 p-6 rounded-[2.5rem] flex flex-col shadow-xl">
-        <div className="mb-6">
-          <h4 className="text-white font-bold text-lg">
-            {selectedDate ? new Date(selectedDate).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) : 'Selecciona un día'}
-          </h4>
-          <p className="text-rose-500 text-[10px] uppercase font-bold tracking-widest mt-1">Citas del día</p>
-        </div>
+      {/* ÁREA DA GRADE (SCROLLABLE) */}
+      <div className="flex-1 overflow-x-auto rounded-[2rem] border border-white/5 bg-stone-950/50 shadow-2xl">
+        <div className="min-w-[800px] relative">
+          
+          {/* DIAS DA SEMANA (STICKY) */}
+          <div className="sticky top-0 z-30 grid grid-cols-[80px_1fr_1fr_1fr_1fr_1fr_1fr] bg-stone-900 border-b border-white/5">
+            <div className="p-4 border-r border-white/5"></div>
+            {weekDays.map((day, i) => {
+              const isToday = day.toDateString() === new Date().toDateString();
+              return (
+                <div key={i} className={`p-3 text-center border-r border-white/5 last:border-0 ${isToday ? 'bg-rose-600/5' : ''}`}>
+                  <p className="text-[10px] font-black text-stone-500 uppercase tracking-tighter">
+                    {day.toLocaleDateString('es-ES', { weekday: 'short' })}
+                  </p>
+                  <p className={`text-lg font-serif font-bold ${isToday ? 'text-rose-500' : 'text-white'}`}>
+                    {day.getDate()}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
 
-        <div className="flex-1 space-y-4 overflow-y-auto max-h-[400px] pr-2 scrollbar-thin scrollbar-thumb-stone-800">
-          {appointmentsForSelectedDay.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-stone-600 text-sm italic text-center px-4 py-20">
-              No hay citas para este día.
+          {/* CORPO DA GRADE */}
+          <div className="relative grid grid-cols-[80px_1fr_1fr_1fr_1fr_1fr_1fr]">
+            
+            {/* HORAS LATERAIS */}
+            <div className="bg-stone-900/30 border-r border-white/5">
+              {hours.map(hour => (
+                <div 
+                  key={hour} 
+                  className="text-right pr-4 text-[10px] font-bold text-stone-600 border-b border-white/5"
+                  style={{ height: `${HOUR_HEIGHT}px`, paddingTop: '4px' }}
+                >
+                  {hour.toString().padStart(2, '0')}:00
+                </div>
+              ))}
             </div>
-          ) : (
-            appointmentsForSelectedDay.map(app => (
-              <div key={app.id} className="bg-stone-950 border border-white/5 p-4 rounded-2xl space-y-3">
-                <div className="flex justify-between items-start">
-                  <span className="bg-rose-600/10 text-rose-500 text-[9px] font-black px-2 py-0.5 rounded-full uppercase">{app.serviceName}</span>
-                  <div className="flex items-center gap-1 text-stone-400 text-xs font-bold">
-                    <Clock size={12} className="text-rose-500"/> {app.startTime}
-                  </div>
+
+            {/* COLUNAS DOS DIAS */}
+            {weekDays.map((day, colIdx) => {
+              const dateStr = day.toISOString().split('T')[0];
+              const dayAppointments = appointments.filter(a => a.date === dateStr);
+              const dayBlocks = timeBlocks.filter(b => isBlockActiveOnDay(b, day));
+
+              return (
+                <div key={colIdx} className="relative border-r border-white/5 last:border-0 group">
+                  {/* Linhas de fundo para cada hora */}
+                  {hours.map(h => (
+                    <div key={h} className="border-b border-white/[0.02]" style={{ height: `${HOUR_HEIGHT}px` }} />
+                  ))}
+
+                  {/* BLOQUEIOS (BACKGROUND) */}
+                  {dayBlocks.map(block => {
+                    const { top } = getTimeData(block.startTime);
+                    const height = calculateHeight(block.startTime, block.endTime);
+                    return (
+                      <div
+                        key={block.id}
+                        className="absolute left-0 right-0 z-10 bg-stone-800/60 backdrop-blur-[2px] border-y border-white/5 flex items-center justify-center overflow-hidden"
+                        style={{ top: `${top}px`, height: `${height}px` }}
+                      >
+                        <div className="flex items-center gap-1.5 opacity-30 rotate-[-10deg]">
+                          <Lock size={12} className="text-white" />
+                          <span className="text-[9px] font-black text-white uppercase tracking-tighter">Bloqueado</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* AGENDAMENTOS (FOREGROUND) */}
+                  {dayAppointments.map(app => {
+                    const { top } = getTimeData(app.startTime);
+                    const height = calculateHeight(app.startTime, app.endTime);
+                    return (
+                      <div
+                        key={app.id}
+                        className="absolute left-1 right-1 z-20 rounded-xl bg-stone-900 border-l-4 border-rose-600 p-2 shadow-2xl ring-1 ring-white/5 hover:scale-[1.02] hover:z-30 transition-all cursor-pointer group/card"
+                        style={{ top: `${top}px`, height: `${height}px` }}
+                      >
+                        <div className="flex flex-col h-full overflow-hidden">
+                          <div className="flex justify-between items-start mb-1">
+                            <span className="text-[9px] font-black text-rose-500 uppercase leading-none truncate pr-1">
+                              {app.startTime}
+                            </span>
+                            <Scissors size={10} className="text-stone-700 group-hover/card:text-rose-500 transition-colors shrink-0" />
+                          </div>
+                          <p className="text-xs font-bold text-white truncate leading-tight">
+                            {app.clientName}
+                          </p>
+                          {height > 40 && (
+                            <p className="text-[10px] text-stone-500 font-medium truncate mt-0.5">
+                              {app.serviceName}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-                <div className="flex items-center gap-2 text-white font-bold text-sm">
-                  <User size={14} className="text-stone-500"/> {app.clientName}
-                </div>
-                <a href={`tel:${app.clientPhone}`} className="flex items-center gap-2 text-stone-500 text-xs hover:text-rose-500 transition-colors">
-                  <Phone size={12}/> {app.clientPhone}
-                </a>
-              </div>
-            ))
-          )}
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* LEGENDA RÁPIDA */}
+      <div className="mt-4 flex gap-4 px-2">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-rose-600"></div>
+          <span className="text-[10px] font-bold text-stone-500 uppercase tracking-widest">Citas</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-stone-800"></div>
+          <span className="text-[10px] font-bold text-stone-500 uppercase tracking-widest">Bloqueos</span>
         </div>
       </div>
     </div>
