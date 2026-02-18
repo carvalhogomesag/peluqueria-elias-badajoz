@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'; // Adicionado useEffect
+import React, { useState, useEffect } from 'react';
 import { 
   Scissors, MapPin, Phone, Clock, Star, 
   CheckCircle2, Quote, ArrowRight, ShieldCheck, 
@@ -15,8 +15,8 @@ import BookingModal from './components/BookingModal';
 import AdminLogin from './components/AdminLogin';
 import AdminDashboard from './components/AdminDashboard';
 
-// DADOS E IMAGENS
-import { BUSINESS_INFO, REVIEWS, IMAGES } from './constants';
+// DADOS E IMAGENS (Adicionado CLIENT_ID)
+import { BUSINESS_INFO, REVIEWS, IMAGES, CLIENT_ID } from './constants';
 import { Service } from './types';
 import mapaImg from './assets/images/mapa-localizacao.webp'; 
 
@@ -32,9 +32,14 @@ const App: React.FC = () => {
   const [dynamicServices, setDynamicServices] = useState<Service[]>([]);
   const [loadingServices, setLoadingServices] = useState(true);
 
-  // --- ESCUTAR SERVIÇOS DO FIREBASE ---
+  // --- ESCUTAR SERVIÇOS DO FIREBASE (Multi-tenant) ---
   useEffect(() => {
-    const q = query(collection(db, "services"), orderBy("name", "asc"));
+    // Aponta agora para a subcoleção específica deste CLIENT_ID
+    const q = query(
+      collection(db, "businesses", CLIENT_ID, "services"), 
+      orderBy("name", "asc")
+    );
+    
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const servicesList = snapshot.docs.map(doc => ({
         id: doc.id,
@@ -48,9 +53,10 @@ const App: React.FC = () => {
   }, []);
 
   return (
+    // TEMA: Gris oscuro y Rosa Carmesim (Rose-600)
     <div className="min-h-screen flex flex-col selection:bg-rose-600/30 selection:text-rose-200 bg-stone-50">
       
-      {/* NAVBAR */}
+      {/* NAVBAR com a função secreta de 5 cliques */}
       <Navbar onAdminClick={() => setIsAdminLoginOpen(true)} />
 
       {/* COMPONENTES ADMINISTRATIVOS */}
@@ -64,12 +70,10 @@ const App: React.FC = () => {
         <AdminDashboard onLogout={() => setIsDashboardOpen(false)} />
       )}
 
-      {/* MODAL DE AGENDAMENTO (Passando os serviços dinâmicos) */}
+      {/* MODAL DE AGENDAMENTO */}
       <BookingModal 
         isOpen={isBookingOpen} 
         onClose={() => setIsBookingOpen(false)} 
-        // Note: Se o seu BookingModal ainda importa SERVICES das constantes, 
-        // poderemos ajustá-lo no próximo passo para receber via props se preferir
       />
 
       {/* HERO SECTION */}
@@ -87,7 +91,7 @@ const App: React.FC = () => {
               <span className="text-stone-400 text-xs font-medium uppercase tracking-widest hidden md:inline"> | 4.9 Estrelas</span>
             </div>
             
-            <h2 className="font-serif text-5xl md:text-8xl font-bold mb-8 leading-[1.1] text-white">
+            <h2 className="font-serif text-5xl md:text-8xl font-bold mb-8 leading-[1.1] text-white tracking-tight">
               Estilo y <span className="text-rose-600 italic">Maestría</span> <br />
               en cada corte.
             </h2>
@@ -130,7 +134,7 @@ const App: React.FC = () => {
         </div>
       </section>
 
-      {/* SERVIÇOS (AGORA DINÂMICOS DO FIREBASE) */}
+      {/* SERVIÇOS (DINÂMICOS) */}
       <section id="servicos" className="py-20 md:py-32 bg-stone-50">
         <div className="container mx-auto px-4 text-left">
           <div className="text-center mb-16">
@@ -185,7 +189,7 @@ const App: React.FC = () => {
               </h2>
               <div className="space-y-6 text-stone-600 font-light text-lg">
                 <p>Ubicada en el corazón de Badajoz, nuestra peluquería ha sido durante años el punto de encuentro para quienes buscan un servicio impecable.</p>
-                <p>Bajo la dirección de Elías, nos enfocamos en resaltar tu mejor versión combinando técnicas tradicionales con las tendencias más actuales de la moda unisex.</p>
+                <p>Bajo la dirección de Elías, nos enfocamos en resaltar tu mejor versión combinando técnicas tradicionales con las tendencias más actuales.</p>
               </div>
             </div>
         </div>
@@ -201,12 +205,7 @@ const App: React.FC = () => {
           <div className="columns-2 md:columns-4 gap-4 md:gap-6 space-y-4 md:space-y-6">
             {IMAGES.cortes.map((img) => (
               <div key={img.id} className="rounded-2xl md:rounded-3xl overflow-hidden group break-inside-avoid">
-                <img 
-                  src={img.url} 
-                  alt={img.alt} 
-                  loading="lazy"
-                  className="w-full grayscale hover:grayscale-0 transition-all duration-700 hover:scale-110 cursor-pointer"
-                />
+                <img src={img.url} alt={img.alt} loading="lazy" className="w-full grayscale hover:grayscale-0 transition-all duration-700 hover:scale-110 cursor-pointer" />
               </div>
             ))}
             <div className="bg-rose-600 aspect-[3/4] rounded-2xl md:rounded-3xl flex flex-col items-center justify-center p-4 md:p-8 text-center group break-inside-avoid">
@@ -285,7 +284,7 @@ const App: React.FC = () => {
           <div className="flex items-center gap-3">
              <Scissors className="text-rose-500" size={32} />
              <div className="text-left">
-                <h1 className="font-serif text-2xl font-bold leading-none">Elías</h1>
+                <h1 className="font-serif text-2xl font-bold leading-none uppercase">Elías</h1>
                 <p className="text-[10px] uppercase tracking-[0.3em] text-rose-500 font-bold">Peluquería Unisex</p>
              </div>
           </div>
