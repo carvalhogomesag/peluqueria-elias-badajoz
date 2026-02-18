@@ -1,17 +1,29 @@
-import React, { useState } from 'react';
-import { X, Calendar, Clock, User, Phone, Scissors, Loader2, Save } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { 
+  X, 
+  Calendar, 
+  Clock, 
+  User, 
+  Phone, 
+  Scissors, 
+  Loader2, 
+  Save, 
+  Trash2, 
+  Plus // Ícone que estava faltando
+} from 'lucide-react';
 import { db } from '../firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { CLIENT_ID } from '../constants';
-import { Service } from '../types';
+import { Service, Appointment } from '../types';
 
 interface AdminBookingModalProps {
   isOpen: boolean;
   onClose: () => void;
   services: Service[];
+  initialData?: Appointment | null;
 }
 
-const AdminBookingModal: React.FC<AdminBookingModalProps> = ({ isOpen, onClose, services }) => {
+const AdminBookingModal: React.FC<AdminBookingModalProps> = ({ isOpen, onClose, services, initialData }) => {
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     clientName: '',
@@ -21,9 +33,28 @@ const AdminBookingModal: React.FC<AdminBookingModalProps> = ({ isOpen, onClose, 
     startTime: '11:00'
   });
 
+  useEffect(() => {
+    if (initialData) {
+      setFormData({
+        clientName: initialData.clientName,
+        clientPhone: initialData.clientPhone,
+        serviceId: initialData.serviceId,
+        date: initialData.date,
+        startTime: initialData.startTime
+      });
+    } else {
+      setFormData({
+        clientName: '',
+        clientPhone: '',
+        serviceId: '',
+        date: new Date().toISOString().split('T')[0],
+        startTime: '11:00'
+      });
+    }
+  }, [initialData, isOpen]);
+
   if (!isOpen) return null;
 
-  // Gerar opções de horários (08:00 às 21:00) de 15 em 15 min para o Admin ter mais flexibilidade
   const timeOptions = Array.from({ length: 53 }, (_, i) => {
     const totalMinutes = 8 * 60 + i * 15;
     const h = Math.floor(totalMinutes / 60);
@@ -39,13 +70,12 @@ const AdminBookingModal: React.FC<AdminBookingModalProps> = ({ isOpen, onClose, 
     if (!selectedService) return;
 
     try {
-      // Calcular EndTime
       const [h, m] = formData.startTime.split(':').map(Number);
       const startInMinutes = h * 60 + m;
       const endInMinutes = startInMinutes + selectedService.duration;
       const endTime = `${Math.floor(endInMinutes / 60).toString().padStart(2, '0')}:${(endInMinutes % 60).toString().padStart(2, '0')}`;
 
-      await addDoc(collection(db, "businesses", CLIENT_ID, "appointments"), {
+      const appointmentData = {
         clientName: formData.clientName,
         clientPhone: formData.clientPhone,
         serviceId: selectedService.id,
@@ -53,14 +83,39 @@ const AdminBookingModal: React.FC<AdminBookingModalProps> = ({ isOpen, onClose, 
         date: formData.date,
         startTime: formData.startTime,
         endTime: endTime,
-        createdAt: serverTimestamp()
-      });
+        updatedAt: serverTimestamp()
+      };
+
+      if (initialData?.id) {
+        const docRef = doc(db, "businesses", CLIENT_ID, "appointments", initialData.id);
+        await updateDoc(docRef, appointmentData);
+      } else {
+        await addDoc(collection(db, "businesses", CLIENT_ID, "appointments"), {
+          ...appointmentData,
+          createdAt: serverTimestamp()
+        });
+      }
 
       onClose();
-      setFormData({ clientName: '', clientPhone: '', serviceId: '', date: new Date().toISOString().split('T')[0], startTime: '11:00' });
     } catch (error) {
-      console.error("Erro ao salvar agendamento:", error);
-      alert("Erro ao salvar. Verifique a consola.");
+      console.error("Erro ao salvar:", error);
+      alert("Erro ao processar a operação.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!initialData?.id) return;
+    if (!window.confirm("¿Estás seguro de que deseas eliminar este agendamiento?")) return;
+
+    setLoading(true);
+    try {
+      await deleteDoc(doc(db, "businesses", CLIENT_ID, "appointments", initialData.id));
+      onClose();
+    } catch (error) {
+      console.error("Erro ao deletar:", error);
+      alert("Erro ao eliminar.");
     } finally {
       setLoading(false);
     }
@@ -68,7 +123,6 @@ const AdminBookingModal: React.FC<AdminBookingModalProps> = ({ isOpen, onClose, 
 
   return (
     <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
-      {/* Overlay com Blur suave */}
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
 
       <div className="relative bg-stone-900 border border-white/10 w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
@@ -76,12 +130,16 @@ const AdminBookingModal: React.FC<AdminBookingModalProps> = ({ isOpen, onClose, 
         {/* Header */}
         <div className="p-6 border-b border-white/5 bg-stone-900/50 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-rose-600 rounded-xl flex items-center justify-center text-white">
-              <Scissors size={20} />
+            <div className={`w-10 h-10 ${initialData ? 'bg-amber-500' : 'bg-rose-600'} rounded-xl flex items-center justify-center text-white transition-colors`}>
+              {initialData ? <Calendar size={20} /> : <Plus size={20} />}
             </div>
             <div>
-              <h2 className="text-white font-bold text-lg">Nova Marcação Manual</h2>
-              <p className="text-rose-500 text-[10px] font-black uppercase tracking-widest">Painel de Gestão</p>
+              <h2 className="text-white font-bold text-lg">
+                {initialData ? 'Detalles de la Cita' : 'Nueva Marcação Manual'}
+              </h2>
+              <p className="text-rose-500 text-[10px] font-black uppercase tracking-widest">
+                {initialData ? 'Editar Agendamiento' : 'Painel de Gestão'}
+              </p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full text-stone-500 transition-colors">
@@ -89,10 +147,8 @@ const AdminBookingModal: React.FC<AdminBookingModalProps> = ({ isOpen, onClose, 
           </button>
         </div>
 
-        {/* Formulário */}
         <form onSubmit={handleSave} className="p-8 space-y-6">
           <div className="grid md:grid-cols-2 gap-6">
-            {/* Nome do Cliente */}
             <div className="space-y-2">
               <label className="text-[10px] font-black text-stone-500 uppercase ml-1 flex items-center gap-2">
                 <User size={12} /> Cliente
@@ -100,14 +156,12 @@ const AdminBookingModal: React.FC<AdminBookingModalProps> = ({ isOpen, onClose, 
               <input 
                 required
                 type="text"
-                placeholder="Ex: Carlos Silva"
                 className="w-full bg-stone-950 border border-white/5 rounded-2xl p-4 text-white outline-none focus:border-rose-500/50 transition-all"
                 value={formData.clientName}
                 onChange={e => setFormData({...formData, clientName: e.target.value})}
               />
             </div>
 
-            {/* Telemóvel */}
             <div className="space-y-2">
               <label className="text-[10px] font-black text-stone-500 uppercase ml-1 flex items-center gap-2">
                 <Phone size={12} /> Telemóvel
@@ -115,7 +169,6 @@ const AdminBookingModal: React.FC<AdminBookingModalProps> = ({ isOpen, onClose, 
               <input 
                 required
                 type="tel"
-                placeholder="912 345 678"
                 className="w-full bg-stone-950 border border-white/5 rounded-2xl p-4 text-white outline-none focus:border-rose-500/50 transition-all"
                 value={formData.clientPhone}
                 onChange={e => setFormData({...formData, clientPhone: e.target.value})}
@@ -123,7 +176,6 @@ const AdminBookingModal: React.FC<AdminBookingModalProps> = ({ isOpen, onClose, 
             </div>
           </div>
 
-          {/* Seleção de Serviço */}
           <div className="space-y-2">
             <label className="text-[10px] font-black text-stone-500 uppercase ml-1 flex items-center gap-2">
               <Scissors size={12} /> Serviço
@@ -142,7 +194,6 @@ const AdminBookingModal: React.FC<AdminBookingModalProps> = ({ isOpen, onClose, 
           </div>
 
           <div className="grid grid-cols-2 gap-6">
-            {/* Data */}
             <div className="space-y-2">
               <label className="text-[10px] font-black text-stone-500 uppercase ml-1 flex items-center gap-2">
                 <Calendar size={12} /> Data
@@ -156,7 +207,6 @@ const AdminBookingModal: React.FC<AdminBookingModalProps> = ({ isOpen, onClose, 
               />
             </div>
 
-            {/* Hora de Início */}
             <div className="space-y-2">
               <label className="text-[10px] font-black text-stone-500 uppercase ml-1 flex items-center gap-2">
                 <Clock size={12} /> Início
@@ -172,14 +222,29 @@ const AdminBookingModal: React.FC<AdminBookingModalProps> = ({ isOpen, onClose, 
             </div>
           </div>
 
-          {/* Botão Salvar */}
-          <button 
-            type="submit"
-            disabled={loading}
-            className="w-full py-5 bg-rose-600 hover:bg-rose-700 text-white font-black rounded-2xl shadow-xl shadow-rose-900/20 transition-all flex justify-center items-center gap-2 active:scale-[0.98]"
-          >
-            {loading ? <Loader2 className="animate-spin" /> : <><Save size={20} /> Confirmar Agendamento</>}
-          </button>
+          <div className="flex gap-3 pt-4">
+            {initialData && (
+              <button 
+                type="button"
+                onClick={handleDelete}
+                disabled={loading}
+                className="flex-none p-5 bg-stone-800 hover:bg-red-900/40 text-red-500 rounded-2xl transition-all active:scale-95"
+                title="Eliminar agendamiento"
+              >
+                <Trash2 size={20} />
+              </button>
+            )}
+            
+            <button 
+              type="submit"
+              disabled={loading}
+              className={`flex-1 py-5 ${initialData ? 'bg-amber-600 hover:bg-amber-700' : 'bg-rose-600 hover:bg-rose-700'} text-white font-black rounded-2xl shadow-xl transition-all flex justify-center items-center gap-2 active:scale-[0.98]`}
+            >
+              {loading ? <Loader2 className="animate-spin" /> : (
+                <><Save size={20} /> {initialData ? 'Actualizar Cita' : 'Confirmar Agendamento'}</>
+              )}
+            </button>
+          </div>
         </form>
       </div>
     </div>

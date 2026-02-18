@@ -13,9 +13,10 @@ import { Appointment, TimeBlock } from '../types';
 interface AdminCalendarProps {
   appointments: Appointment[];
   timeBlocks: TimeBlock[];
+  onEditAppointment: (appt: Appointment) => void; // Nova prop para abrir edição
 }
 
-const AdminCalendar: React.FC<AdminCalendarProps> = ({ appointments, timeBlocks }) => {
+const AdminCalendar: React.FC<AdminCalendarProps> = ({ appointments, timeBlocks, onEditAppointment }) => {
   const [viewDate, setViewDate] = useState(new Date());
 
   // --- CONFIGURAÇÃO DA GRADE ---
@@ -121,11 +122,11 @@ const AdminCalendar: React.FC<AdminCalendarProps> = ({ appointments, timeBlocks 
         </div>
       </div>
 
-      {/* ÁREA DA GRADE (SCROLLABLE) */}
+      {/* ÁREA DA GRADE */}
       <div className="flex-1 overflow-x-auto rounded-[2rem] border border-white/5 bg-stone-950/50 shadow-2xl">
         <div className="min-w-[800px] relative">
           
-          {/* DIAS DA SEMANA (STICKY) */}
+          {/* DIAS DA SEMANA */}
           <div className="sticky top-0 z-30 grid grid-cols-[80px_1fr_1fr_1fr_1fr_1fr_1fr] bg-stone-900 border-b border-white/5">
             <div className="p-4 border-r border-white/5"></div>
             {weekDays.map((day, i) => {
@@ -167,22 +168,21 @@ const AdminCalendar: React.FC<AdminCalendarProps> = ({ appointments, timeBlocks 
 
               return (
                 <div key={colIdx} className="relative border-r border-white/5 last:border-0 group">
-                  {/* Linhas de fundo para cada hora */}
                   {hours.map(h => (
                     <div key={h} className="border-b border-white/[0.02]" style={{ height: `${HOUR_HEIGHT}px` }} />
                   ))}
 
-                  {/* BLOQUEIOS (BACKGROUND) */}
+                  {/* BLOQUEIOS */}
                   {dayBlocks.map(block => {
                     const { top } = getTimeData(block.startTime);
                     const height = calculateHeight(block.startTime, block.endTime);
                     return (
                       <div
                         key={block.id}
-                        className="absolute left-0 right-0 z-10 bg-stone-800/60 backdrop-blur-[2px] border-y border-white/5 flex items-center justify-center overflow-hidden"
+                        className="absolute left-0 right-0 z-10 bg-stone-800/40 backdrop-blur-[1px] border-y border-white/5 flex items-center justify-center overflow-hidden"
                         style={{ top: `${top}px`, height: `${height}px` }}
                       >
-                        <div className="flex items-center gap-1.5 opacity-30 rotate-[-10deg]">
+                        <div className="flex items-center gap-1.5 opacity-20 rotate-[-5deg]">
                           <Lock size={12} className="text-white" />
                           <span className="text-[9px] font-black text-white uppercase tracking-tighter">Bloqueado</span>
                         </div>
@@ -190,14 +190,15 @@ const AdminCalendar: React.FC<AdminCalendarProps> = ({ appointments, timeBlocks 
                     );
                   })}
 
-                  {/* AGENDAMENTOS (FOREGROUND) */}
+                  {/* AGENDAMENTOS (AGORA CLICÁVEIS) */}
                   {dayAppointments.map(app => {
                     const { top } = getTimeData(app.startTime);
                     const height = calculateHeight(app.startTime, app.endTime);
                     return (
                       <div
                         key={app.id}
-                        className="absolute left-1 right-1 z-20 rounded-xl bg-stone-900 border-l-4 border-rose-600 p-2 shadow-2xl ring-1 ring-white/5 hover:scale-[1.02] hover:z-30 transition-all cursor-pointer group/card"
+                        onClick={() => onEditAppointment(app)} // Gatilho de edição
+                        className="absolute left-1.5 right-1.5 z-20 rounded-xl bg-stone-900 border-l-4 border-rose-600 p-2 shadow-2xl ring-1 ring-white/5 hover:ring-rose-500/50 hover:bg-stone-800 hover:scale-[1.02] hover:z-30 transition-all cursor-pointer group/card"
                         style={{ top: `${top}px`, height: `${height}px` }}
                       >
                         <div className="flex flex-col h-full overflow-hidden">
@@ -207,10 +208,10 @@ const AdminCalendar: React.FC<AdminCalendarProps> = ({ appointments, timeBlocks 
                             </span>
                             <Scissors size={10} className="text-stone-700 group-hover/card:text-rose-500 transition-colors shrink-0" />
                           </div>
-                          <p className="text-xs font-bold text-white truncate leading-tight">
+                          <p className="text-xs font-bold text-white truncate leading-tight group-hover/card:text-rose-100 transition-colors">
                             {app.clientName}
                           </p>
-                          {height > 40 && (
+                          {height > 45 && (
                             <p className="text-[10px] text-stone-500 font-medium truncate mt-0.5">
                               {app.serviceName}
                             </p>
@@ -226,11 +227,11 @@ const AdminCalendar: React.FC<AdminCalendarProps> = ({ appointments, timeBlocks 
         </div>
       </div>
 
-      {/* LEGENDA RÁPIDA */}
+      {/* LEGENDA */}
       <div className="mt-4 flex gap-4 px-2">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-rose-600"></div>
-          <span className="text-[10px] font-bold text-stone-500 uppercase tracking-widest">Citas</span>
+          <span className="text-[10px] font-bold text-stone-500 uppercase tracking-widest">Citas (Clic para editar)</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-stone-800"></div>

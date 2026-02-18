@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { Appointment, Service, WorkConfig, TimeBlock } from '../types';
 import AdminCalendar from './AdminCalendar';
-import AdminBookingModal from './AdminBookingModal'; // Novo componente
+import AdminBookingModal from './AdminBookingModal';
 import { BUSINESS_INFO, CLIENT_ID } from '../constants';
 
 interface AdminDashboardProps {
@@ -19,10 +19,11 @@ interface AdminDashboardProps {
 }
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
-  // --- NAVEGAÇÃO ---
+  // --- NAVEGAÇÃO E MODAIS ---
   const [activeTab, setActiveTab] = useState<'appointments' | 'services' | 'settings'>('appointments');
   const [appointmentsMode, setAppointmentsMode] = useState<'calendar' | 'list'>('calendar');
   const [isAdminBookingOpen, setIsAdminBookingOpen] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
 
   // --- DADOS ---
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -35,16 +36,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   const [loadingApp, setLoadingApp] = useState(true);
   const [loadingServ, setLoadingServ] = useState(true);
 
-  // --- FORMULÁRIOS ---
+  // --- FORMULÁRIOS DE CRIAÇÃO RÁPIDA (SERVIÇOS E BLOQUEIOS) ---
   const [newService, setNewService] = useState({ name: '', description: '', price: '', duration: 30 });
   const [newBlock, setNewBlock] = useState<Partial<TimeBlock>>({
     title: '', date: new Date().toISOString().split('T')[0], startTime: '11:00', endTime: '12:00', 
     isRecurring: false, recurringType: 'weekly', repeatCount: 1
   });
 
-  // Auxiliar: Gera lista de horários de 30 em 30 min
   const hoursOptions = Array.from({ length: 29 }, (_, i) => {
-    const h = Math.floor(i / 2) + 8; // Inicia às 08:00
+    const h = Math.floor(i / 2) + 8;
     const m = i % 2 === 0 ? '00' : '30';
     return `${h.toString().padStart(2, '0')}:${m}`;
   });
@@ -52,7 +52,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   useEffect(() => {
     const today = new Date().toISOString().split('T')[0];
     
-    // 1. ESCUTA AGENDAMENTOS (Multi-tenant)
     const qApp = query(
       collection(db, "businesses", CLIENT_ID, "appointments"), 
       where("date", ">=", today), 
@@ -63,19 +62,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       setLoadingApp(false);
     });
 
-    // 2. ESCUTA SERVIÇOS
     const qServ = query(collection(db, "businesses", CLIENT_ID, "services"), orderBy("name", "asc"));
     const unsubServ = onSnapshot(qServ, (snap) => {
       setDbServices(snap.docs.map(d => ({ id: d.id, ...d.data() } as Service)));
       setLoadingServ(false);
     });
 
-    // 3. ESCUTA CONFIGURAÇÃO JORNADA
     const unsubConfig = onSnapshot(doc(db, "businesses", CLIENT_ID, "config", "work-schedule"), (snap) => {
       if (snap.exists()) setWorkConfig(snap.data() as WorkConfig);
     });
 
-    // 4. ESCUTA BLOQUEIOS DE AGENDA
     const unsubBlocks = onSnapshot(collection(db, "businesses", CLIENT_ID, "timeBlocks"), (snap) => {
       setTimeBlocks(snap.docs.map(d => ({ id: d.id, ...d.data() } as TimeBlock)));
     });
@@ -83,26 +79,33 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     return () => { unsubApp(); unsubServ(); unsubConfig(); unsubBlocks(); };
   }, []);
 
-  // --- AÇÕES ---
+  // --- HANDLERS DE AGENDAMENTO ---
+  const handleOpenNewBooking = () => {
+    setSelectedAppointment(null);
+    setIsAdminBookingOpen(true);
+  };
 
+  const handleEditAppointment = (appt: Appointment) => {
+    setSelectedAppointment(appt);
+    setIsAdminBookingOpen(true);
+  };
+
+  // --- OUTRAS AÇÕES ---
   const handleAddService = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newService.name || !newService.price) return;
     try {
-      await addDoc(collection(db, "businesses", CLIENT_ID, "services"), { 
-        ...newService, 
-        createdAt: serverTimestamp() 
-      });
+      await addDoc(collection(db, "businesses", CLIENT_ID, "services"), { ...newService, createdAt: serverTimestamp() });
       setNewService({ name: '', description: '', price: '', duration: 30 });
       alert("Servicio creado.");
-    } catch (error) { alert("Error al crear servicio."); }
+    } catch (error) { alert("Error."); }
   };
 
   const handleSaveConfig = async () => {
     try {
       await setDoc(doc(db, "businesses", CLIENT_ID, "config", "work-schedule"), workConfig);
-      alert("Jornada actualizada.");
-    } catch (e) { alert("Error al guardar."); }
+      alert("Configuración guardada.");
+    } catch (e) { alert("Error."); }
   };
 
   const handleAddTimeBlock = async (e: React.FormEvent) => {
@@ -115,19 +118,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     } catch (e) { alert("Error."); }
   };
 
-  const handleDeleteApp = async (id: string) => {
+  const handleDeleteApp = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation(); // Evita abrir o modal ao clicar no lixo
     if (window.confirm("¿Eliminar cita?")) await deleteDoc(doc(db, "businesses", CLIENT_ID, "appointments", id));
-  };
-
-  const handleDeleteService = async (id: string) => {
-    if (window.confirm("¿Eliminar servicio?")) await deleteDoc(doc(db, "businesses", CLIENT_ID, "services", id));
   };
 
   const handleSignOut = async () => { await auth.signOut(); onLogout(); };
 
   return (
     <div className="fixed inset-0 z-[120] bg-stone-950 flex flex-col text-left overflow-hidden">
-      {/* HEADER PRINCIPAL */}
+      {/* HEADER */}
       <header className="bg-stone-900 border-b border-rose-900/20 p-6 z-30 shadow-2xl">
         <div className="container mx-auto flex flex-col lg:flex-row justify-between items-center gap-6">
           <div className="flex items-center gap-4">
@@ -172,9 +172,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                 </h3>
                 
                 <div className="flex items-center gap-3 w-full md:w-auto">
-                  {/* BOTÃO PARA MARCAÇÃO MANUAL */}
                   <button 
-                    onClick={() => setIsAdminBookingOpen(true)}
+                    onClick={handleOpenNewBooking}
                     className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-700 text-white px-5 py-2.5 rounded-xl text-xs font-black transition-all shadow-lg shadow-rose-900/20 active:scale-95"
                   >
                     <Plus size={16} /> NUEVA CITA
@@ -195,16 +194,24 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                 <div className="flex justify-center py-20"><Loader2 className="animate-spin text-rose-500" size={40} /></div>
               ) : (
                 appointmentsMode === 'calendar' ? (
-                  <AdminCalendar appointments={appointments} timeBlocks={timeBlocks} />
+                  <AdminCalendar 
+                    appointments={appointments} 
+                    timeBlocks={timeBlocks} 
+                    onEditAppointment={handleEditAppointment} 
+                  />
                 ) : (
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {appointments.length === 0 ? (
                       <div className="col-span-full bg-stone-900/50 border border-dashed border-white/10 rounded-[2.5rem] py-20 text-center">
-                        <p className="text-stone-600 italic">No hay citas registradas para los próximos días.</p>
+                        <p className="text-stone-600 italic">No hay citas registradas.</p>
                       </div>
                     ) : (
                       appointments.map(app => (
-                        <div key={app.id} className="bg-stone-900 border border-white/5 p-6 rounded-[2.5rem] relative group shadow-lg hover:border-rose-500/30 transition-all">
+                        <div 
+                          key={app.id} 
+                          onClick={() => handleEditAppointment(app)}
+                          className="bg-stone-900 border border-white/5 p-6 rounded-[2.5rem] relative group shadow-lg hover:border-rose-500/30 transition-all cursor-pointer"
+                        >
                           <span className="bg-rose-600/10 text-rose-500 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">{app.serviceName}</span>
                           <div className="mt-4 text-white font-bold text-lg leading-tight">{app.clientName}</div>
                           <div className="text-stone-400 text-sm mt-2 font-medium">
@@ -214,7 +221,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                             <Phone size={14}/> {app.clientPhone}
                           </div>
                           <button 
-                            onClick={() => handleDeleteApp(app.id!)} 
+                            onClick={(e) => handleDeleteApp(e, app.id!)} 
                             className="absolute top-6 right-6 text-stone-700 hover:text-red-500 transition-colors"
                           >
                             <Trash2 size={18}/>
@@ -256,7 +263,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                            <div className="w-10 h-10 bg-stone-950 rounded-xl flex items-center justify-center text-rose-500"><Briefcase size={18}/></div>
                            <div><h4 className="text-white font-bold">{s.name}</h4><p className="text-stone-500 text-xs">{s.duration} min • {s.price}</p></div>
                         </div>
-                        <button onClick={() => handleDeleteService(s.id!)} className="text-stone-700 hover:text-red-500 p-2"><Trash2 size={20}/></button>
+                        <button onClick={() => { if(window.confirm("¿Eliminar?")) deleteDoc(doc(db, "businesses", CLIENT_ID, "services", s.id!)) }} className="text-stone-700 hover:text-red-500 p-2"><Trash2 size={20}/></button>
                      </div>
                    ))}
                 </div>
@@ -366,14 +373,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       </main>
 
       <footer className="p-4 text-center text-stone-800 text-[10px] uppercase font-bold tracking-[0.4em] bg-stone-950 border-t border-white/5">
-        Gestión Elías León • Allan Dev v1.8
+        Gestión Elías León • Allan Dev v2.0
       </footer>
 
-      {/* MODAL DE AGENDAMENTO MANUAL */}
+      {/* MODAL HÍBRIDO (CRIAÇÃO E EDIÇÃO) */}
       <AdminBookingModal 
         isOpen={isAdminBookingOpen} 
         onClose={() => setIsAdminBookingOpen(false)} 
         services={dbServices} 
+        initialData={selectedAppointment}
       />
     </div>
   );
