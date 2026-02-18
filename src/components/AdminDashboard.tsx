@@ -11,8 +11,9 @@ import {
 } from 'lucide-react';
 import { Appointment, Service, WorkConfig, TimeBlock } from '../types';
 import AdminCalendar from './AdminCalendar';
-// Importamos o CLIENT_ID para separar as bases de dados
+import AdminBookingModal from './AdminBookingModal'; // Novo componente
 import { BUSINESS_INFO, CLIENT_ID } from '../constants';
+
 interface AdminDashboardProps {
   onLogout: () => void;
 }
@@ -20,7 +21,8 @@ interface AdminDashboardProps {
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   // --- NAVEGAÇÃO ---
   const [activeTab, setActiveTab] = useState<'appointments' | 'services' | 'settings'>('appointments');
-  const [appointmentsMode, setAppointmentsMode] = useState<'list' | 'calendar'>('calendar');
+  const [appointmentsMode, setAppointmentsMode] = useState<'calendar' | 'list'>('calendar');
+  const [isAdminBookingOpen, setIsAdminBookingOpen] = useState(false);
 
   // --- DADOS ---
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -50,7 +52,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
   useEffect(() => {
     const today = new Date().toISOString().split('T')[0];
     
-    // 1. ESCUTA AGENDAMENTOS (Multi-tenant: pasta do cliente)
+    // 1. ESCUTA AGENDAMENTOS (Multi-tenant)
     const qApp = query(
       collection(db, "businesses", CLIENT_ID, "appointments"), 
       where("date", ">=", today), 
@@ -125,27 +127,27 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
 
   return (
     <div className="fixed inset-0 z-[120] bg-stone-950 flex flex-col text-left overflow-hidden">
-      {/* HEADER DINÂMICO */}
+      {/* HEADER PRINCIPAL */}
       <header className="bg-stone-900 border-b border-rose-900/20 p-6 z-30 shadow-2xl">
         <div className="container mx-auto flex flex-col lg:flex-row justify-between items-center gap-6">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-rose-600 rounded-2xl flex items-center justify-center text-white shadow-lg">
+            <div className="w-12 h-12 bg-rose-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-rose-900/20">
               <Scissors size={24} />
             </div>
             <div>
               <h2 className="text-xl font-serif font-bold text-white uppercase tracking-tight">Gestión {BUSINESS_INFO.name}</h2>
-              <p className="text-rose-500 text-[10px] uppercase font-black tracking-widest">Client ID: {CLIENT_ID}</p>
+              <p className="text-rose-500 text-[10px] font-black uppercase tracking-widest leading-none mt-1">Panel Administrativo</p>
             </div>
           </div>
 
           <nav className="flex bg-stone-800/40 p-1 rounded-2xl border border-white/5">
-            <button onClick={() => setActiveTab('appointments')} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === 'appointments' ? 'bg-rose-600 text-white shadow-lg' : 'text-stone-400'}`}>
+            <button onClick={() => setActiveTab('appointments')} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === 'appointments' ? 'bg-rose-600 text-white shadow-lg' : 'text-stone-400 hover:text-stone-200'}`}>
               <LayoutDashboard size={16} /> CITAS
             </button>
-            <button onClick={() => setActiveTab('services')} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === 'services' ? 'bg-rose-600 text-white shadow-lg' : 'text-stone-400'}`}>
+            <button onClick={() => setActiveTab('services')} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === 'services' ? 'bg-rose-600 text-white shadow-lg' : 'text-stone-400 hover:text-stone-200'}`}>
               <Briefcase size={16} /> SERVICIOS
             </button>
-            <button onClick={() => setActiveTab('settings')} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === 'settings' ? 'bg-rose-600 text-white shadow-lg' : 'text-stone-400'}`}>
+            <button onClick={() => setActiveTab('settings')} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === 'settings' ? 'bg-rose-600 text-white shadow-lg' : 'text-stone-400 hover:text-stone-200'}`}>
               <Settings size={16} /> CONFIG
             </button>
           </nav>
@@ -160,38 +162,73 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
       <main className="flex-1 overflow-y-auto p-4 md:p-8">
         <div className="container mx-auto max-w-6xl">
 
-          {/* CITAS (Com Toggles de Visualização) */}
+          {/* ABA: AGENDAMENTOS */}
           {activeTab === 'appointments' && (
             <div className="animate-in fade-in duration-500 h-full flex flex-col">
-              <div className="flex justify-between items-center mb-8">
-                <h3 className="text-white font-bold flex items-center gap-3"><CalendarIcon className="text-rose-500"/> Agenda de Reservas</h3>
-                <div className="flex bg-stone-900 border border-white/5 p-1 rounded-xl">
-                  <button onClick={() => setAppointmentsMode('calendar')} className={`p-2 rounded-lg transition-all ${appointmentsMode === 'calendar' ? 'bg-stone-800 text-rose-500' : 'text-stone-600 hover:text-stone-400'}`}><CalendarDays size={20}/></button>
-                  <button onClick={() => setAppointmentsMode('list')} className={`p-2 rounded-lg transition-all ${appointmentsMode === 'list' ? 'bg-stone-800 text-rose-500' : 'text-stone-600 hover:text-stone-400'}`}><LayoutList size={20}/></button>
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                <h3 className="text-white font-bold flex items-center gap-3 text-lg">
+                  <CalendarIcon className="text-rose-500" size={24}/> 
+                  Agenda de Reservas
+                </h3>
+                
+                <div className="flex items-center gap-3 w-full md:w-auto">
+                  {/* BOTÃO PARA MARCAÇÃO MANUAL */}
+                  <button 
+                    onClick={() => setIsAdminBookingOpen(true)}
+                    className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-700 text-white px-5 py-2.5 rounded-xl text-xs font-black transition-all shadow-lg shadow-rose-900/20 active:scale-95"
+                  >
+                    <Plus size={16} /> NUEVA CITA
+                  </button>
+
+                  <div className="flex bg-stone-900 border border-white/5 p-1 rounded-xl">
+                    <button onClick={() => setAppointmentsMode('calendar')} className={`p-2 rounded-lg transition-all ${appointmentsMode === 'calendar' ? 'bg-stone-800 text-rose-500' : 'text-stone-600 hover:text-stone-400'}`}>
+                      <CalendarDays size={20}/>
+                    </button>
+                    <button onClick={() => setAppointmentsMode('list')} className={`p-2 rounded-lg transition-all ${appointmentsMode === 'list' ? 'bg-stone-800 text-rose-500' : 'text-stone-600 hover:text-stone-400'}`}>
+                      <LayoutList size={20}/>
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              {loadingApp ? <div className="flex justify-center py-20"><Loader2 className="animate-spin text-rose-500" size={40} /></div> : (
+              {loadingApp ? (
+                <div className="flex justify-center py-20"><Loader2 className="animate-spin text-rose-500" size={40} /></div>
+              ) : (
                 appointmentsMode === 'calendar' ? (
                   <AdminCalendar appointments={appointments} timeBlocks={timeBlocks} />
                 ) : (
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {appointments.length === 0 ? <p className="col-span-3 text-center text-stone-600 italic py-10">No hay citas registradas.</p> : appointments.map(app => (
-                      <div key={app.id} className="bg-stone-900 border border-white/5 p-6 rounded-[2.5rem] relative group shadow-lg">
-                        <span className="bg-rose-600/10 text-rose-500 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">{app.serviceName}</span>
-                        <div className="mt-4 text-white font-bold text-lg">{app.clientName}</div>
-                        <div className="text-stone-400 text-sm mt-2 font-medium">{app.date} • {app.startTime} - {app.endTime}</div>
-                        <div className="mt-4 pt-4 border-t border-white/5 flex items-center gap-2 text-rose-400 font-bold text-sm"><Phone size={14}/> {app.clientPhone}</div>
-                        <button onClick={() => handleDeleteApp(app.id!)} className="absolute top-6 right-6 text-stone-700 hover:text-red-500 transition-colors"><Trash2 size={18}/></button>
+                    {appointments.length === 0 ? (
+                      <div className="col-span-full bg-stone-900/50 border border-dashed border-white/10 rounded-[2.5rem] py-20 text-center">
+                        <p className="text-stone-600 italic">No hay citas registradas para los próximos días.</p>
                       </div>
-                    ))}
+                    ) : (
+                      appointments.map(app => (
+                        <div key={app.id} className="bg-stone-900 border border-white/5 p-6 rounded-[2.5rem] relative group shadow-lg hover:border-rose-500/30 transition-all">
+                          <span className="bg-rose-600/10 text-rose-500 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">{app.serviceName}</span>
+                          <div className="mt-4 text-white font-bold text-lg leading-tight">{app.clientName}</div>
+                          <div className="text-stone-400 text-sm mt-2 font-medium">
+                            {new Date(app.date).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })} • {app.startTime} - {app.endTime}
+                          </div>
+                          <div className="mt-4 pt-4 border-t border-white/5 flex items-center gap-2 text-rose-400 font-bold text-sm">
+                            <Phone size={14}/> {app.clientPhone}
+                          </div>
+                          <button 
+                            onClick={() => handleDeleteApp(app.id!)} 
+                            className="absolute top-6 right-6 text-stone-700 hover:text-red-500 transition-colors"
+                          >
+                            <Trash2 size={18}/>
+                          </button>
+                        </div>
+                      ))
+                    )}
                   </div>
                 )
               )}
             </div>
           )}
 
-          {/* SERVICIOS */}
+          {/* ABA: SERVIÇOS */}
           {activeTab === 'services' && (
              <div className="space-y-6 animate-in slide-in-from-bottom-4">
                 <form onSubmit={handleAddService} className="bg-stone-900 border border-rose-900/20 p-8 rounded-[3rem] shadow-2xl space-y-6">
@@ -226,10 +263,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
              </div>
           )}
 
-          {/* CONFIGURACIÓN */}
+          {/* ABA: CONFIGURAÇÃO */}
           {activeTab === 'settings' && (
             <div className="space-y-12 animate-in slide-in-from-bottom-4 pb-24">
-              {/* JORNADA */}
               <div className="bg-stone-900 border border-white/5 p-8 rounded-[3rem] shadow-2xl">
                 <h3 className="text-white font-bold mb-8 flex items-center gap-3"><Clock className="text-rose-500"/> Jornada Laboral</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
@@ -260,7 +296,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                 <button onClick={handleSaveConfig} className="mt-10 flex items-center gap-3 bg-rose-600 hover:bg-rose-700 text-white px-10 py-5 rounded-2xl font-black shadow-xl shadow-rose-900/30 transition-all"><Save size={20}/> Guardar Jornada</button>
               </div>
 
-              {/* BLOQUEOS */}
+              {/* BLOQUEIOS MANUAIS */}
               <div className="grid lg:grid-cols-2 gap-8">
                 <div className="bg-stone-900 border border-white/5 p-8 rounded-[3rem] shadow-xl">
                    <h3 className="text-white font-bold mb-6 flex items-center gap-3"><Ban className="text-rose-500"/> Bloquear Agenda</h3>
@@ -304,7 +340,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
                           </div>
                         )}
                       </div>
-                      <button type="submit" className="w-full py-5 bg-white text-stone-950 font-black rounded-2xl shadow-xl">Aplicar Bloqueo</button>
+                      <button type="submit" className="w-full py-5 bg-white text-stone-950 font-black rounded-2xl shadow-xl active:scale-95 transition-all">Aplicar Bloqueo</button>
                    </form>
                 </div>
 
@@ -329,9 +365,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
         </div>
       </main>
 
-      <footer className="p-4 text-center text-stone-800 text-[10px] uppercase tracking-[0.4em] bg-stone-950 border-t border-white/5">
-        Sistema Elías León • Allan Dev v1.5
+      <footer className="p-4 text-center text-stone-800 text-[10px] uppercase font-bold tracking-[0.4em] bg-stone-950 border-t border-white/5">
+        Gestión Elías León • Allan Dev v1.8
       </footer>
+
+      {/* MODAL DE AGENDAMENTO MANUAL */}
+      <AdminBookingModal 
+        isOpen={isAdminBookingOpen} 
+        onClose={() => setIsAdminBookingOpen(false)} 
+        services={dbServices} 
+      />
     </div>
   );
 };
