@@ -1,5 +1,5 @@
 // src/constants.tsx
-
+export const CLIENT_ID = 'elias-badajoz';
 export const BUSINESS_INFO = {
   name: "Peluquería Elías",
   owner: "Elías León",
